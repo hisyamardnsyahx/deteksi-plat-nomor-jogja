@@ -1,0 +1,8 @@
+ultralytics>=8.3
+opencv-python-headless>=4.9
+pandas>=2.0
+# OCR untuk tahap 2 (pilih satu, jangan dua-duanya kalau RAM/GPU pas-pasan):
+# easyocr>=1.7
+# paddleocr>=2.8
+# Roboflow hanya untuk unduh dataset (butuh API key akun sendiri):
+# roboflow>=1.1

@@ -1,0 +1,13 @@
+# Adaptasi A4: deteksi 2 kelas langsung (eksperimen pembanding).
+# Dibuat HANYA setelah relabel selesai (lihat docs/RELABEL.md).
+# Label: 0 = plat-jogja (prefix AB), 1 = plat-non-jogja (prefix selain AB).
+# JANGAN membuat file ini dari label 1 kelas lama dengan menebak-nebak:
+# tiap gambar harus sudah dibaca prefix platnya oleh manusia / OCR terverifikasi.
+path: data/jogja_2cls
+train: train/images
+val: valid/images
+test: test/images
+nc: 2
+names:
+  0: plat-jogja
+  1: plat-non-jogja

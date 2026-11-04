@@ -1,0 +1,11 @@
+# Baseline A: format YOLO hasil ekspor Roboflow (1 kelas).
+# GANTI path di bawah dengan lokasi hasil ekstrak ZIP di mesin training.
+# File data.yaml bawaan Roboflow biasanya sudah benar — file ini hanya
+# template pendamping supaya struktur kelasnya eksplisit di laporan.
+path: .
+train: train/images
+val: valid/images
+test: test/images
+nc: 1
+names:
+  0: Plat-Nomor
