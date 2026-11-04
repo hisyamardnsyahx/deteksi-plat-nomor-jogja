@@ -6,7 +6,7 @@ sekitar 3 menit per epoch pada ukuran gambar 640, jadi 30 epoch saja
 sudah sekitar 90 menit, dan 100 epoch pada ukuran 960 akan jauh lebih
 lama. Pilot itu dihentikan di epoch 4 dari 30. Checkpoint-nya masih
 ada di `runs/detect/`, tetapi tidak dipakai untuk hasil utama.
-
+ 
 ## Isi notebook
 
 File `colab_yolo11_plat_jogja.ipynb` berisi 20 sel: 10 sel markdown
