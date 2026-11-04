@@ -1,5 +1,5 @@
 # Deteksi Plat Nomor: Jogja vs Non-Jogja dengan YOLOv11
-
+ 
 Proyek ini menjawab satu pertanyaan dari foto kendaraan: apakah platnya
 berasal dari Yogyakarta atau bukan. Patokannya sederhana. Plat dengan
 kode wilayah AB, yang mencakup Kota Yogyakarta, Sleman, Bantul, Kulon
