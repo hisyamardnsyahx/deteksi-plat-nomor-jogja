@@ -4,7 +4,7 @@ Data Roboflow yang dipakai sejauh ini menjawab di mana platnya,
 bukan plat mana yang Jogja. Data baru harus menjawab pertanyaan
 kedua itu, dan dokumen ini menuliskan syaratnya supaya pengumpulan
 datanya tidak asal banyak.
-
+ 
 ## Jumlah
 
 Targetnya 600 sampai 1.000 gambar baru yang sudah berlabel Jogja
