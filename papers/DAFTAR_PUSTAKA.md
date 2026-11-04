@@ -1,27 +1,33 @@
-# Daftar pustaka & tabel perbandingan — proyek plat Jogja vs non-Jogja
+# Daftar pustaka dan tabel perbandingan — proyek plat Jogja vs non-Jogja
 
-Disusun 4 Nov 2026 dari daftar paper/jurnal yang sudah diberikan ke Syam di side chat
-"Classify Jogja license plates with YOLOv11" pada hari yang sama (16:10 WIB).
-File ini adalah draf siap tempel ke laporan — bukan laporan final yang sudah direvisi.
+Dokumen ini disusun 4 November 2026 dari daftar paper yang dibahas
+pada hari yang sama. Ia masih berupa draf untuk ditempel ke laporan,
+bukan laporan final yang sudah direvisi.
 
-## Catatan kejujuran yang harus ikut ke laporan
+## Tiga hal yang harus ikut ke laporan
 
-1. **Tidak ada satu pun paper di bawah ini yang mengklasifikasikan kode wilayah
-   AB (Jogja) vs non-Jogja.** Yang ada: deteksi plat + OCR plat Indonesia secara
-   umum, dan klasifikasi atribut plat lain (warna). Jadi bagian AB vs non-AB
-   tetap celah kebaruan proyek ini.
-2. **Perbandingan dengan paper Indonesia bersifat perbandingan metode, bukan
-   reproduce persis.** Dari pengecekan langsung ke naskah pada 4 Nov 2026:
-   SISFOKOM, JAIC, dan Gaussian YOLOv7 tidak memuat tautan dataset maupun code
-   publik (pencarian "github" di naskah JAIC dan Gaussian YOLOv7 menghasilkan nol).
-   Angka mereka tidak bisa direproduce persis — hanya metodenya yang bisa
-   ditiru dengan data lain, persis seperti yang sudah dilakukan dengan dataset
-   Roboflow UTY.
-3. **Jalur OCR dua tahap belum dijalankan dan belum dibandingkan secara empiris
-   di proyek ini.** Yang dievaluasi di laporan hanya YOLOv11 deteksi 2 kelas
-   langsung (tanpa keluaran string teks plat).
+Pertama, tidak ada satu pun paper di bawah ini yang
+mengklasifikasikan kode wilayah AB versus non-AB. Yang ada adalah
+deteksi plat dan OCR plat Indonesia secara umum, serta klasifikasi
+atribut plat lain, yaitu warna. Jadi bagian AB versus non-AB tetap
+menjadi celah kebaruan proyek ini, dan klaim itu tidak boleh
+disamarkan dengan daftar pustaka yang panjang.
 
-## Tabel perbandingan (siap tempel)
+Kedua, perbandingan dengan paper Indonesia di sini adalah
+perbandingan metode, bukan reproduce persis. Dari pengecekan
+langsung ke naskah pada 4 November 2026, paper SISFOKOM, JAIC, dan
+Gaussian YOLOv7 tidak memuat tautan dataset maupun code publik;
+pencarian kata "github" di naskah JAIC dan Gaussian YOLOv7 tidak
+menghasilkan apa-apa. Angka mereka karena itu tidak bisa
+direproduksi persis. Yang bisa ditiru hanyalah metodenya, dengan
+data lain, persis seperti yang sudah dilakukan dengan dataset
+Roboflow UTY.
+
+Ketiga, jalur OCR dua tahap belum dijalankan dan belum dibandingkan
+secara empiris di proyek ini. Yang dievaluasi di laporan hanya
+YOLOv11 deteksi dua kelas langsung, tanpa keluaran string teks plat.
+
+## Tabel perbandingan
 
 | Paper | Metode | Dataset | Metrik headline | Relevansi ke proyek AB vs non-AB |
 |---|---|---|---|---|
@@ -61,21 +67,24 @@ File ini adalah draf siap tempel ke laporan — bukan laporan final yang sudah d
    Based on the YOLO Detector*. IJCNN 2018.
    PDF: https://raysonlaroca.github.io/presentations/laroca2018robust.pdf
 
-## Tidak open access penuh — jangan diklaim sudah dibaca penuh
+## Yang tidak open access penuh
 
-- Paper YOLOv11 + MobileViTv2 (Springer, ICDAM 2025): halaman publik hanya
-  menampilkan abstrak; naskah lengkap butuh akses institusi/UGM.
-  https://doi.org/10.1007/978-3-032-03751-0_32
+Paper YOLOv11 + MobileViTv2 (Springer, ICDAM 2025) hanya menampilkan
+abstrak di halaman publiknya. Naskah lengkapnya membutuhkan akses
+institusi atau UGM, jadi paper itu jangan diklaim sudah dibaca penuh.
+https://doi.org/10.1007/978-3-032-03751-0_32
 
-## Yang masih perlu dilakukan Syam (bukan dikerjakan diam-diam)
+## Sisa pekerjaan
 
-- [ ] Unduh ke-6 PDF di atas ke folder `papers/` di proyek ini (tautan sudah
-      terverifikasi sebagai tautan yang diberikan 4 Nov 2026; unduhan ulang
-      belum dilakukan di run ini).
-- [ ] Tempel tabel perbandingan + daftar pustaka ini ke laporan, lalu sesuaikan
-      format sitasi dengan gaya yang dipakai laporan (penulis Pepadun dan RESTI
-      belum dilengkapi di atas karena tidak tercantum di daftar yang diberikan —
-      lengkapi dari naskah, jangan ditebak).
-- [ ] Putuskan: cukup tabel ini, atau jalankan juga jalur OCR dua tahap
-      (YOLO 1 kelas + EasyOCR) sebagai pembanding empiris — jalur itu yang
-      membuat perbandingan dengan SISFOKOM benar-benar sepadan.
+- Unduh keenam PDF di atas ke folder `papers/` di proyek ini. Tautannya
+  sudah terverifikasi pada 4 November 2026, tetapi unduhan ulangnya
+  belum dilakukan.
+- Tempel tabel perbandingan dan daftar pustaka ini ke laporan, lalu
+  sesuaikan format sitasinya dengan gaya yang dipakai laporan.
+  Penulis paper Pepadun dan RESTI belum dilengkapi di atas karena
+  tidak tercantum di daftar yang diberikan; lengkapi dari naskahnya
+  langsung, jangan ditebak.
+- Putuskan apakah tabel ini sudah cukup, atau jalur OCR dua tahap
+  (YOLO satu kelas + EasyOCR) juga perlu dijalankan sebagai pembanding
+  empiris. Jalur itulah yang membuat perbandingan dengan SISFOKOM
+  benar-benar sepadan.

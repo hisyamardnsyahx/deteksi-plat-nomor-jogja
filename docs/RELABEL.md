@@ -1,31 +1,59 @@
-# Relabel Roboflow 1 kelas -> Jogja 2 kelas
+# Relabel Roboflow satu kelas menjadi dua kelas Jogja
 
-Masalah: label YOLO bawaan Roboflow hanya menyimpan id kelas + kotak.
-Ia tidak menyimpan teks plat. Jadi **tidak ada cara otomatis yang sah**
-untuk mengubah 614 label itu menjadi Jogja/non-Jogja tanpa membaca
-tiap platnya.
+## Masalahnya
 
-Prosedur yang benar:
+Anotasi YOLO bawaan Roboflow hanya menyimpan id kelas dan koordinat
+kotak. Ia tidak menyimpan teks plat, sehingga tidak ada cara yang
+sah untuk mengubah 614 label itu menjadi Jogja dan non-Jogja tanpa
+membaca tiap platnya.
 
-1. Jalankan `scripts/audit_dataset.py` untuk memastikan struktur
-   train/valid/test dan menghitung kotak per split.
-2. Untuk tiap gambar, baca prefix plat secara manual (atau OCR +
-   verifikasi manual 100% — OCR saja tidak cukup jadi ground truth).
-3. Isi CSV: `image, prefix, label` dengan label `plat-jogja` kalau
-   prefix == AB, `plat-non-jogja` kalau bukan, `unreadable` kalau
-   tidak terbaca.
-4. Jalankan `scripts/relabel_to_jogja.py --csv audit.csv
-   --src data/roboflow --dst data/jogja_2cls`.
-   Skrip ini menyalin gambar + menulis ulang id kelas di txt
-   (0/1), membuang `unreadable`, dan MEMBUAT split baru yang
-   stratified per kelas — split bawaan Roboflow tidak bisa dipakai
-   mentah-mentah lagi karena proporsi AB/non-AB di tiap split lama
-   tidak diketahui sebelum audit.
-5. Simpan CSV audit sebagai lampiran laporan. Tanpa CSV ini,
-   klaim akurasi Jogja tidak bisa diverifikasi.
+Prosedur yang ideal memang begitu: baca prefix tiap plat secara
+manual, atau pakai OCR yang kemudian diverifikasi manual seratus
+persen, karena OCR saja tidak cukup menjadi ground truth. Hasil
+bacaan itu ditulis ke CSV berisi nama gambar, prefix, dan label:
+`plat-jogja` bila prefixnya AB, `plat-non-jogja` bila bukan, dan
+`unreadable` bila tidak terbaca. CSV itu kemudian menjadi lampiran
+laporan, karena tanpa CSV tersebut klaim akurasi Jogja tidak bisa
+diverifikasi.
 
-Catatan: kalau ternyata mayoritas data Roboflow itu AB (atau
-sebaliknya), JANGAN menyeimbangkan dengan menduplikasi gambar yang
-sama berkali-kali. Tambah data baru dari kelas minoritas (langkah B),
-atau laporkan ketidakseimbangan + pakai metrik per kelas
-(precision/recall per kelas, bukan hanya akurasi total).
+## Yang benar-benar dilakukan di proyek ini
+
+Proyek ini tidak mengikuti prosedur ideal itu sampai tuntas, dan
+perbedaan itu perlu ditulis apa adanya. Nama file Roboflow ternyata
+mengkodekan teks plat, misalnya `K1_AB2430VL_...jpg` berarti plat
+AB 2430 VL, sehingga label dibuat dari pola nama file tersebut,
+bukan dari pembacaan manual atas tiap foto. Alurnya: jalankan
+`scripts/audit_dataset.py` untuk memastikan struktur train, valid,
+dan test serta menghitung kotak per split, lalu
+`scripts/generate_audit_csv.py` untuk menulis CSV audit dari nama
+file, lalu `scripts/relabel_to_jogja.py` untuk menyalin gambar dan
+menulis ulang id kelas pada file txt menjadi 0 untuk Jogja dan 1
+untuk non-Jogja.
+
+Satu pengecualian ditangani manual, bukan ditebak. File test
+`K4_1938WA...jpg` tidak membawa prefix di namanya, padahal fotonya
+AB 1938 WA, sehingga labelnya dikoreksi dari pembacaan foto
+langsung. Satu kotak train yang degeneratif, sekitar 0,002x0,002,
+dibuang sebagai noise anotasi. Split asli dipertahankan, bukan
+diacak ulang dan bukan dibuat ulang secara stratified, karena
+pemeriksaan menunjukkan tidak ada token plat yang sama muncul di
+dua split berbeda dan tidak ada duplikat token di dalam satu split.
+
+## Konsekuensinya
+
+Karena label berasal dari nama file, label itu sekuat nama file
+itu sendiri. Pemeriksaan konsistensi label terhadap nama file
+untuk seluruh 614 gambar menghasilkan nol ketidakcocokan selain
+file K4 tersebut, tetapi pemeriksaan itu bersifat sirkular dan
+hanya membuktikan konsistensi, bukan kebenaran foto. Karena itu
+spot-check visual acak sebesar 10 persen, yaitu 61 gambar yang
+daftarnya ada di `runs/spotcheck_sample.csv`, tetap wajib sebelum
+angka-angka ini diklaim final. Bila spot-check menemukan label
+yang salah, perbaiki CSV auditnya dan jalankan ulang relabel.
+
+Satu catatan lagi untuk data berikutnya. Bila ternyata mayoritas
+data adalah AB, atau sebaliknya, jangan menyeimbangkan dengan
+menduplikasi gambar yang sama berkali-kali. Tambah data baru dari
+kelas minoritas, sesuai langkah B, atau laporkan
+ketidakseimbangannya dan pakai metrik per kelas, precision dan
+recall per kelas, bukan hanya akurasi total.
