@@ -1,181 +1,247 @@
-# Deteksi Plat Nomor: Jogja vs Non-Jogja (YOLOv11)
+# Deteksi Plat Nomor: Jogja vs Non-Jogja dengan YOLOv11
 
-Tujuan: dari foto kendaraan, jawab **Jogja (kode wilayah AB) atau non-Jogja**.
-Kode AB = Daerah Istimewa Yogyakarta (Kota Yogyakarta, Sleman, Bantul,
-Kulon Progo, Gunungkidul). Semua kode lain = non-Jogja.
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
+![YOLOv11](https://img.shields.io/badge/YOLOv11-Ultralytics-green)
+![Dataset](https://img.shields.io/badge/Dataset-Roboflow%20UTY%20v1-orange)
 
-## 1. Temuan baseline (langkah A) — dibaca dari sumber, 4 Nov 2026
+Mengklasifikasikan plat nomor kendaraan Indonesia menjadi **Jogja** atau
+**non-Jogja** dari foto kendaraan, menggunakan YOLOv11. Plat Jogja
+didefinisikan oleh kode wilayah **AB** (Daerah Istimewa Yogyakarta: Kota
+Yogyakarta, Sleman, Bantul, Kulon Progo, Gunungkidul). Semua kode wilayah
+lain diklasifikasikan sebagai non-Jogja.
 
-Sumber: Roboflow Universe, Universitas Teknologi Yogyakarta,
-“Deteksi Plat Nomor Kendaraan 2”, dataset v1, 16 Des 2023.
-Lisensi: CC BY 4.0. File yang dipakai: ZIP YOLOv11 dari Google Drive
-Syam, `Deteksi Plat Nomor Kendaraan 2.v1i.yolov11.zip` (53 MB).
+> **Ide kuncinya:** plat AB dan non-AB bentuknya sama, jadi klasifikasi
+> tidak bisa mengandalkan bentuk kotak plat saja. Perbedaannya ada pada
+> huruf prefix di awal plat — model harus belajar pola visual huruf
+> tersebut, atau membacanya lewat OCR.
 
-| Item | Nilai terverifikasi dari file yang diunduh |
+## Hasil Utama
+
+Model yang dilatih dan dievaluasi di sini adalah **YOLOv11n deteksi
+2 kelas langsung** (`plat-jogja` / `plat-non-jogja`), di-fine-tune dari
+`yolo11n.pt` (pretrained COCO) di Google Colab (GPU Tesla T4, 100 epoch,
+~24 menit, tanpa early stopping).
+
+| Split | Gambar | Precision | Recall | mAP50 | mAP50-95 |
+|---|---:|---:|---:|---:|---:|
+| Validasi | 62 | 0,985 | 0,978 | 0,995 | 0,787 |
+| Test | 61 | 0,997 | 1,000 | 0,995 | 0,800 |
+
+Per kelas pada validasi: `plat-jogja` (30 instance) precision 0,97,
+recall 1,000, mAP50 0,995; `plat-non-jogja` (32 instance) precision 1,000,
+recall 0,956, mAP50 0,995.
+
+Confusion matrix pada test (IoU ≥ 0,5, confidence 0,25): **33 Jogja
+benar, 28 non-Jogja benar, 0 salah kelas, 0 terlewat, 5 false positive**
+(kotak tambahan, bukan kesalahan AB vs non-AB). Seluruh 61 plat test
+ditemukan dan diklasifikasikan dengan benar.
+
+Sebagai pembanding, model pretrained COCO tanpa fine-tuning menghasilkan
+**0 deteksi plat** pada 61 gambar test (284 deteksi kendaraan/orang:
+motor 175, mobil 90, orang 16, truk 1, pot tanaman 1, ransel 1) — wajar,
+karena COCO tidak memiliki kelas plat nomor. Fine-tuning wajib sebelum
+ada klaim deteksi plat.
+
+## Metode
+
+Dua jalur dibedakan secara tegas di proyek ini:
+
+1. **Jalur yang dilatih dan dievaluasi (hasil di atas).** YOLOv11
+   deteksi 2 kelas langsung. Model mengeluarkan kotak, label, dan
+   confidence — bukan string teks plat. `imgsz=960` dipilih agar huruf
+   prefix cukup terbaca secara visual oleh model.
+2. **Jalur rekomendasi (belum dievaluasi empiris).** Deteksi plat
+   1 kelas → crop dengan padding 5–10% → OCR membaca prefix → AB =
+   Jogja, selain AB = non-Jogja, OCR tidak yakin = `tidak yakin`.
+   Jalur ini lebih mudah diaudit per huruf dan merupakan langkah lanjut
+   yang disarankan, tetapi angkanya belum boleh diklaim dari proyek ini.
+   Skrip kerangkanya ada di `scripts/detect_classify.py`.
+
+### Konfigurasi training (Colab, Tesla T4)
+
+| Parameter | Nilai |
 |---|---|
-| Total gambar | 614 |
-| Split bawaan | train 491 (80%), valid 62 (10%), test 61 (10%) |
-| Kelas asli (`data.yaml`) | 1 kelas: `Plat-Nomor` |
-| Kotak anotasi | train 492, valid 62, test 61 — train berisi 1 kotak degeneratif 0,002×0,002 (noise, dibuang saat relabel) sehingga train bersih = 491 kotak |
-| Ukuran gambar | 720×720 (cek 5 gambar test, semua RGB 720×720) |
-| Ukuran kotak rata-rata | lebar ~0,33, tinggi ~0,11 (fraksi gambar) — plat relatif besar di frame, bagus untuk deteksi dan OCR |
-| Preprocessing (halaman sumber) | Auto-Orient, Resize: Stretch to 720×720, tanpa augmentasi |
-| Paper / metrik acuan / bobot model | **Tidak ada di halaman sumber** |
-| Format unduhan yang tersedia | YOLOv11, YOLOv12, YOLOv8, COCO, Pascal VOC, dll. |
+| Model awal | `yolo11n.pt` (Ultralytics YOLOv11n, backbone C3k2 + SPPF + C2PSA, neck PAN, head Detect anchor-free) |
+| Data | `configs/data_jogja_2cls.yaml` (2 kelas) |
+| Epoch / patience / seed | 100 / 50 / 42 |
+| Image size / batch / workers | 960 / 16 / 2 |
+| Optimizer / LR awal | SGD default Ultralytics / 0,01 (momentum 0,937, weight decay 0,0005, warmup 3 epoch) |
+| Augmentasi kunci | `mosaic=1.0`, `close_mosaic=10`, **`fliplr=0.0`, `flipud=0.0`** |
 
-### Kesimpulan A3 yang jujur
+Flip horizontal/vertikal **wajib dimatikan**: flip mencerminkan huruf
+plat dan merusak pembelajaran prefix maupun OCR. Evaluasi headline
+menggunakan `model.val()` standar; confusion dihitung pada IoU ≥ 0,5
+dan confidence 0,25.
 
-**Tidak bisa “reproduce results” dalam arti membandingkan mAP dengan
-paper/model sumber, karena tidak ada angka acuan yang dipublikasikan di
-halaman tersebut.** Ini dataset saja, bukan paper + bobot model.
+## Dataset
 
-Konsekuensi logisnya, mengikuti alur tugas (A3a):
+Sumber: [Deteksi Plat Nomor Kendaraan 2, Universitas Teknologi
+Yogyakarta, Roboflow Universe v1 (16 Des 2023)](https://universe.roboflow.com/universitas-teknologi-yogyakarta-8owbv/deteksi-plat-nomor-kendaraan-2/dataset/1),
+lisensi **CC BY 4.0**. Preprocessing sumber: Auto-Orient dan Resize
+Stretch ke 720×720, tanpa augmentasi.
 
-1. Cek code → tidak ada repo/code training di halaman sumber.
-2. Cek data → satu kelas deteksi plat, bukan dua kelas Jogja/non-Jogja.
-3. Jadi baseline yang bisa direproduksi di sini adalah:
-   - **Baseline detektor:** YOLOv11 pretrained COCO → inference di data test
-     → dicatat hasilnya (lihat `scripts/baseline_pretrained.py`).
-   - **Baseline terlatih:** fine-tune YOLOv11 dari `yolo11n.pt` pada
-     614 gambar itu → ukur mAP50 / mAP50-95 di valid/test bawaan.
-   - Keduanya **belum menjawab Jogja vs non-Jogja**. Itu baru langkah A4/B.
+| Item | Nilai |
+|---|---|
+| Total gambar | 614 (train 491 / valid 62 / test 61) |
+| Kelas asli | 1 kelas: `Plat-Nomor` |
+| Kotak anotasi | train 492, valid 62, test 61 |
+| Ukuran kotak rata-rata | lebar ~0,33, tinggi ~0,11 (fraksi gambar) |
 
-### Temuan audit yang mengubah langkah relabel (penting!)
+### Relabel menjadi 2 kelas
 
-Nama file Roboflow ternyata mengkodekan teks plat, mis.
-`K1_AB2430VL_...jpg` = plat AB 2430 VL. Tiga sampel dicek visual dan
-cocok persis dengan plat di foto (AB 2430 VL, AA 4072 LB, AB 1938 WA).
-Satu pengecualian membuktikan nama file bukan ground truth sempurna:
-`K4_1938WA_...jpg` tidak membawa prefix di namanya, padahal fotonya
-AB 1938 WA — file ini ditangani manual, bukan ditebak.
-
-Hasil audit dari nama file (CSV lengkap: `runs/audit_jogja.csv`,
-dibuat `scripts/generate_audit_csv.py`):
+Dataset asli hanya memiliki 1 kelas, sehingga label Jogja/non-Jogja
+dibuat dengan relabel (`scripts/relabel_to_jogja.py`, detail di
+`docs/RELABEL.md`). Nama file Roboflow mengkodekan teks plat
+(mis. `K1_AB2430VL_...jpg` = AB 2430 VL), dan relabel memanfaatkan itu.
+Split asli dipertahankan agar tidak terjadi kebocoran token plat antar
+split (cek: nol token yang sama muncul di dua split berbeda, nol
+duplikat dalam satu split). Satu kotak train degeneratif (~0,002×0,002)
+dibuang sebagai noise anotasi, sehingga train bersih = 491 kotak.
 
 | Split | Jogja (AB) | Non-Jogja | Total |
-|---|---|---|---|
-| train | 266 (54,2%) | 225 | 491 |
-| valid | 30 (48,4%) | 32 | 62 |
-| test | 33 (54,1%) | 28 | 61 |
-| **total** | **329** | **285** | **614** |
+|---|---:|---:|---:|
+| Train | 266 | 225 | 491 |
+| Valid | 30 | 32 | 62 |
+| Test | 33 | 28 | 61 |
+| **Total** | **329** | **285** | **614** |
 
-Dua cek kebersihan split juga lolos: **nol token plat yang sama
-muncul di dua split berbeda, dan nol duplikat token dalam satu split**.
-Jadi split asli dipertahankan untuk dataset 2 kelas
-(`data/jogja_2cls/`, dibuat `scripts/relabel_to_jogja.py`) — tidak
-perlu diacak ulang. Catatan kejujuran: label 2 kelas ini diturunkan
-dari nama file + 1 verifikasi visual, bukan dari pembacaan manual
-614 foto. Sebelum dipakai sebagai klaim final di laporan, lakukan
-spot-check visual acak minimal 10% (62 foto) dan catat hasilnya;
-kalau ada yang salah baca, perbaiki CSV-nya dan jalankan ulang relabel.
+### Keterbatasan label — dibaca sebelum mengutip angka
 
-### Kenapa detektor 1 kelas tidak cukup untuk Jogja vs non-Jogja
+- Label 2 kelas **diturunkan dari nama file, bukan dari pembacaan
+  manual 614 foto**. Satu pengecualian sudah dikoreksi manual:
+  file test `K4_1938WA...jpg` tidak membawa prefix di namanya, padahal
+  fotonya AB 1938 WA.
+- Cek konsistensi label-vs-nama-file untuk 614 gambar: 0 ketidakcocokan
+  selain K4 tersebut. Cek ini bersifat sirkular (label memang berasal
+  dari nama file), jadi ia membuktikan konsistensi, bukan kebenaran foto.
+- Spot-check visual penuh 10% (61 gambar) **belum selesai**: 7 foto
+  sudah dibaca visual dan semuanya cocok dengan labelnya. Karena itu
+  risiko label salah tampak rendah, tetapi caveat ini belum tertutup.
+- Angka di atas berlaku untuk dataset Roboflow ini, yang platnya
+  relatif besar di frame. Generalisasi ke foto HP dunia nyata belum
+  teruji — lihat [Langkah Lanjut](#langkah-lanjut).
 
-Plat Jogja dan non-Jogja bentuknya sama. Bedanya hanya huruf kode
-wilayah di awal plat (AB vs yang lain), plus kadang warna plat
-(hitam lama vs putih baru — itu bukan penanda wilayah).
-Jadi klasifikasi Jogja harus membaca huruf, bukan sekadar bentuk kotak plat.
+## Reproduksi
 
-### Arsitektur yang direkomendasikan (A4)
+### Prasyarat
 
-**Pipeline 2 tahap (utama, paling bisa diaudit):**
-
-```
-foto -> YOLOv11 deteksi 1 kelas "plat" -> crop plat (+padding 5-10%)
-      -> OCR crop -> baca prefix -> AB = jogja, selain AB = non-jogja
-      -> kalau OCR confidence rendah: label "tidak yakin", jangan dipaksa
-```
-
-**Eksperimen pembanding (kalau dosen minta murni YOLO):**
-YOLOv11 deteksi 2 kelas langsung: `plat-jogja`, `plat-non-jogja`.
-Ini satu model, tapi butuh data jauh lebih banyak dan `imgsz` besar,
-karena model harus belajar bentuk huruf AB vs huruf lain dari kotak
-kecil. Laporkan keduanya, jangan hanya yang menang.
-
-## 2. Model & hyperparameter (A1, A4)
-
-- Framework: Ultralytics YOLOv11 (`ultralytics`).
-- Arsitektur: YOLO11n backbone C3k2 + SPPF + C2PSA, neck PAN, head Detect
-  P3/8–P5/32, anchor-free, loss IoU+DFL untuk box dan BCE untuk klas.
-- Bobot awal: `yolo11n.pt` (pretrained COCO). Naik ke `yolo11s.pt` hanya
-  kalau mAP val mentok dan masih ada headroom GPU/waktu.
-  Perkiraan ukuran (Ultralytics): n ≈ 2,6 jt parameter / 6,5 GFLOPs,
-  s ≈ 9,4 jt / 21,5 GFLOPs.
-- `imgsz`: 640 untuk baseline detektor; **960 untuk tugas Jogja**
-  (plat kecil, huruf harus terbaca). 1280 hanya kalau GPU kuat.
-- `epochs`: 100 dulu, `patience=50` (early stopping Ultralytics).
-- `batch`: 16 di GPU T4 pada imgsz 640; turunkan ke 8 di imgsz 960/1280.
-- `lr0=0.01`, optimizer SGD default Ultralytics, `momentum=0.937`,
-  `weight_decay=0.0005`, `warmup_epochs=3`, cosine LR.
-- Augmentasi default Ultralytics dipakai, **dengan dua koreksi penting
-  untuk tugas ini**:
-  - `fliplr=0.0` dan `flipud=0.0` — flip horizontal membalik huruf
-    (AB jadi cermin), merusak pembelajaran huruf dan OCR.
-  - `mosaic=1.0`, `close_mosaic=10` (mosaic dimatikan 10 epoch terakhir).
-- `seed=42`, split bawaan Roboflow **jangan diacak ulang** untuk baseline.
-  Untuk data Jogja baru, pakai stratified split + group split
-  (foto kendaraan yang sama tidak boleh bocor ke train dan test).
-- Evaluasi: `model.val()` standar untuk mAP50 dan mAP50-95
-  (conf validasi default 0.001, jangan pakai threshold deployment untuk
-  headline mAP). Precision/Recall/F1 dilaporkan terpisah pada
-  operating point yang dipilih (mis. conf=0.25–0.35), plus confusion
-  matrix Jogja vs non-Jogja vs tidak-yakin untuk pipeline OCR.
-
-Perintah baseline (setelah dataset diunduh ke `data/roboflow/`):
+- Python 3.10+, GPU disarankan (training penuh tidak realistis di CPU).
+- Instal dependensi:
 
 ```bash
-# venv proyek (sudah disiapkan): .venv/bin/python
-.venv/bin/python scripts/audit_dataset.py --root data/roboflow
-.venv/bin/python scripts/baseline_pretrained.py \
+pip install -r requirements.txt
+```
+
+### 1. Unduh dataset
+
+Dari halaman Roboflow di atas: Download → format YOLOv11 → ekstrak ke
+`data/roboflow/` sehingga tersedia `data.yaml`, `train/`, `valid/`,
+`test/`. Dataset **tidak** di-commit ke repo ini (folder `data/`
+di-ignore); halaman sumber tidak menyediakan paper, metrik acuan,
+maupun bobot model, sehingga baseline di sini dibangun sendiri, bukan
+dengan membandingkan angka ke paper sumber.
+
+### 2. Audit, relabel, dan baseline
+
+```bash
+python scripts/audit_dataset.py --root data/roboflow
+python scripts/generate_audit_csv.py   # -> runs/audit_jogja.csv
+python scripts/relabel_to_jogja.py     # -> data/jogja_2cls/
+python scripts/baseline_pretrained.py \
     --test-dir data/roboflow/test/images \
     --out runs/baseline_pretrained.csv
-.venv/bin/python scripts/train.py --data data/roboflow/data.yaml \
-    --model yolo11n.pt --epochs 100 --imgsz 640 --batch 16
 ```
 
-Perintah 2 kelas (dataset relabel sudah jadi di `data/jogja_2cls/`):
+### 3. Training
+
+Di lokal (GPU) atau lewat notebook Colab yang tersedia di repo ini
+(`colab_yolo11_plat_jogja.ipynb`, runtime GPU T4):
 
 ```bash
-.venv/bin/python scripts/train.py --data data/jogja_2cls/data.yaml \
-    --model yolo11n.pt --epochs 100 --imgsz 960 --batch 8 --fliplr 0.0
+python scripts/train.py --data configs/data_jogja_2cls.yaml \
+    --model yolo11n.pt --epochs 100 --imgsz 960 --batch 16 --fliplr 0.0
 ```
 
-## 3. Data yang dibutuhkan (langkah B)
+Evaluasi standar setelah training:
 
-Detail lengkap: `docs/KEBUTUHAN_DATA.md`. Ringkasnya:
+```bash
+yolo val model=runs/yolo11_plat/weights/best.pt \
+    data=configs/data_jogja_2cls.yaml imgsz=960
+```
 
-| Kebutuhan | Target |
-|---|---|
-| Data baru foto HP | 600–1.000 gambar (300–500 Jogja, 300–500 non-Jogja), seimbang |
-| Test set khusus Jogja | min. 100 gambar (50/50), dari kendaraan/hari/lokasi berbeda dari train |
-| Dataset Roboflow | dipakai sebagai pretrain detektor, tapi tiap gambarnya harus diaudit dulu: apakah platnya AB atau bukan — label aslinya tidak menyimpan info itu |
-| Komposisi | siang/malam, depan/belakang, dekat/jauh, miring, motor/mobil, plat hitam & putih, plat kotor/blur ringan |
-| Anotasi | kotak ketat mengelilingi plat saja (bukan seluruh kendaraan), format YOLO txt + CSV teks plat hasil baca manusia untuk audit OCR |
+### 4. Bobot model
 
-## 4. Alur B5 — keputusan transfer learning
+Bobot hasil training Colab (`best.pt`, ~5,6 MB) **tidak** ada di repo
+ini, karena snapshot GitHub pada proyek ini hanya mencakup file teks.
+Untuk inference, latih ulang dengan perintah di atas atau minta bobot
+dari penulis. Jangan mengutip angka test tanpa bobot/konfigurasi yang
+sesuai.
 
-1. Inference pretrained / detektor Roboflow di data baru → catat.
-2. Kalau deteksi plat sudah bagus tapi klasifikasi Jogja salah →
-   masalahnya di tahap baca huruf, bukan detektor: perbaiki OCR/crop,
-   bukan langsung training ulang detektor.
-3. Kalau deteksi plat jelek di foto HP (jarak/sudut/cahaya berbeda) →
-   fine-tune detektor dari bobot Roboflow dengan data baru
-   (transfer learning), bukan training dari nol.
-4. Training dari nol hanya kalau tidak ada bobot yang bisa dipakai ulang
-   — di sini tidak berlaku, karena `yolo11n.pt` dan bobot hasil
-   fine-tune Roboflow tersedia.
+## Struktur Repo
 
-## 5. Cara mengunduh dataset sumber
+```
+├── README.md                      # Dokumen ini
+├── README_COLAB.md                # Panduan menjalankan notebook di Colab
+├── colab_yolo11_plat_jogja.ipynb  # Notebook end-to-end (GPU, audit, relabel, train, eval)
+├── configs/
+│   ├── data_roboflow_1cls.yaml    # Dataset asli 1 kelas
+│   └── data_jogja_2cls.yaml       # Dataset relabel 2 kelas
+├── docs/
+│   ├── KEBUTUHAN_DATA.md          # Spesifikasi data dunia nyata (Blok B)
+│   └── RELABEL.md                 # Metode dan caveat relabel
+├── papers/
+│   └── DAFTAR_PUSTAKA.md          # Daftar pustaka & tabel perbandingan paper
+└── scripts/
+    ├── audit_dataset.py           # Audit dataset sumber
+    ├── baseline_pretrained.py     # Baseline YOLOv11 pretrained COCO
+    ├── detect_classify.py         # Kerangka pipeline deteksi + OCR (belum dievaluasi penuh)
+    ├── evaluate_detection.py      # Confusion matrix Jogja vs non-Jogja
+    ├── generate_audit_csv.py      # Audit label dari nama file
+    ├── relabel_to_jogja.py        # Relabel 1 kelas -> 2 kelas
+    └── train.py                   # Training fine-tune YOLOv11
+```
 
-Di halaman Roboflow: Download → pilih format YOLOv11 → Download ZIP.
-Butuh akun Roboflow gratis untuk ekspor. Ekstrak ke
-`data/roboflow/` sehingga ada `data.yaml`, `train/`, `valid/`, `test/`.
-Jangan commit dataset ke repo — folder `data/` di-ignore.
+## Langkah Lanjut
 
-## 6. Batasan lingkungan di VM ini
+1. **Selesaikan spot-check visual 10%** (61 gambar, daftar di
+   `runs/spotcheck_sample.csv`); koreksi `runs/audit_jogja.csv` dan
+   jalankan ulang relabel bila ditemukan label salah.
+2. **Blok B — data dunia nyata:** kumpulkan 600–1.000 foto HP (300–500
+   per kelas) plus test khusus min. 100 gambar (50/50) dari
+   kendaraan/hari/lokasi berbeda; komposisi siang/malam, depan/belakang,
+   dekat/jauh, motor/mobil, plat hitam/putih. Simpan foto asli (jangan
+   diperkecil dulu), tanpa flip, disertai CSV audit teks plat hasil
+   baca manusia. Detail lengkap di `docs/KEBUTUHAN_DATA.md`.
+3. **Bangun dan bandingkan pipeline OCR dua tahap** pada test set yang
+   sama, sebelum mengklaim pembacaan huruf.
+4. Training dari nol sengaja tidak dilakukan: bobot pretrained tersedia
+   dan fine-tuning/transfer learning berhasil, sesuai prioritas
+   direct inference → fine-tuning → transfer learning → training dari
+   nol.
 
-VM ini (cek 4 Nov 2026): 4 CPU, RAM 7,7 GB, **tanpa GPU, tanpa torch
-terinstal**. Training penuh di sini tidak realistis untuk 100 epoch.
-Jalankan training di Colab (GPU T4 gratis) atau laptop/PC bergpu,
-dengan perintah yang sama di atas. Di VM ini yang realistis: audit
-dataset, skrip, dan inference ringan setelah bobot jadi.
+## Referensi
+
+Tidak ada paper yang ditemukan secara spesifik mengklasifikasikan kode
+wilayah AB vs non-AB; daftar berikut adalah pembanding metode terdekat
+(detail dan tabel perbandingan lengkap di `papers/DAFTAR_PUSTAKA.md`):
+
+- Martadinata, Firdaus, & Amal (2025). *Detection and Identification of
+  Vehicle License Plates in Indonesia Transportation System Based on
+  Deep Learning Using YOLOv11 and EasyOCR*. Jurnal Sisfokom, 14(4),
+  573–578. DOI: 10.32736/sisfokom.v14i4.2524.
+- Kurniawan & Sari (2025). *Automatic License Plate Detection System
+  with YOLOv11 Algorithm*. Journal of Applied Informatics and Computing,
+  9(6), 3097–3109.
+- Wijaya & Arymurthy (2025). *Indonesian License Plate Detection and
+  Recognition System using Gaussian YOLOv7*. Jurnal Ilmu Komputer dan
+  Informasi, 18(2), 141–153. DOI: 10.21609/jiki.v18i2.1320.
+- Laroca et al. (2018). *A Robust Real-Time Automatic License Plate
+  Recognition Based on the YOLO Detector*. IJCNN 2018 (dataset
+  UFPR-ALPR).
+
+## Atribusi
+
+Dataset sumber oleh Universitas Teknologi Yogyakarta, lisensi CC BY 4.0
+— cantumkan atribusi tersebut bila memakai ulang datasetnya. Kode dan
+dokumen di repo ini dibuat untuk proyek ini; bobot model, dataset
+gambar, dan laporan PDF final tidak termasuk dalam repo ini.
